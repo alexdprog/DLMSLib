@@ -19,14 +19,20 @@ public sealed class MinimalDlmsClient
     public const string SerialNumberObis = "0.0.96.1.0.255";
 
     private readonly ISerialPortAdapter _portAdapter;
+    private readonly int _serverAddress;
+    private readonly int _clientAddress;
 
     /// <summary>
     /// Создает экземпляр минимального DLMS-клиента.
     /// </summary>
     /// <param name="portAdapter">Адаптер порта.</param>
-    public MinimalDlmsClient(ISerialPortAdapter portAdapter)
+    /// <param name="serverAddress">Адрес DLMS-сервера, сформированный через DlmsAddressHelper.GetServerAddress.</param>
+    /// <param name="clientAddress">Клиентский адрес (по умолчанию 0x10).</param>
+    public MinimalDlmsClient(ISerialPortAdapter portAdapter, int serverAddress, int clientAddress = 0x10)
     {
         _portAdapter = portAdapter;
+        _serverAddress = serverAddress;
+        _clientAddress = clientAddress;
     }
 
     /// <summary>
@@ -64,8 +70,7 @@ public sealed class MinimalDlmsClient
     public byte[] BuildGetRequest(string obis)
     {
         var obisBytes = ParseObis(obis);
-
-        return new byte[]
+        var getApdu = new byte[]
         {
             0xC0, // GET-Request
             0x01, // Normal
@@ -76,6 +81,54 @@ public sealed class MinimalDlmsClient
             0x02, // AttributeId = 2 (value)
             0x00  // Access selection = false
         };
+
+        return BuildMinimalHdlcFrame(getApdu);
+    }
+
+    private byte[] BuildMinimalHdlcFrame(byte[] payload)
+    {
+        var serverBytes = EncodeHdlcAddress(_serverAddress);
+        var clientBytes = EncodeHdlcAddress(_clientAddress);
+
+        // Минимальный HDLC каркас: флаг + адреса + payload + флаг.
+        // FCS/LLC здесь намеренно опущены, так как библиотека делает только минимальное чтение.
+        var frame = new byte[1 + serverBytes.Length + clientBytes.Length + payload.Length + 1];
+        var index = 0;
+        frame[index++] = 0x7E;
+
+        Array.Copy(serverBytes, 0, frame, index, serverBytes.Length);
+        index += serverBytes.Length;
+
+        Array.Copy(clientBytes, 0, frame, index, clientBytes.Length);
+        index += clientBytes.Length;
+
+        Array.Copy(payload, 0, frame, index, payload.Length);
+        index += payload.Length;
+
+        frame[index] = 0x7E;
+        return frame;
+    }
+
+    private static byte[] EncodeHdlcAddress(int address)
+    {
+        if (address < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(address), "Адрес не может быть отрицательным.");
+        }
+
+        if (address <= 0x7F)
+        {
+            return new[] { (byte)((address << 1) | 0x01) };
+        }
+
+        if (address <= 0x3FFF)
+        {
+            var hi = (byte)(((address >> 7) & 0x7F) << 1);
+            var lo = (byte)(((address & 0x7F) << 1) | 0x01);
+            return new[] { hi, lo };
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(address), "Поддерживаются адреса до 14 бит.");
     }
 
     private static byte[] ParseObis(string obis)

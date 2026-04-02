@@ -18,7 +18,8 @@ public static class UsageExample
 
         try
         {
-            var client = new MinimalDlmsClient(adapter);
+            var serverAddress = DlmsAddressHelper.GetServerAddress(0x1, 127);
+            var client = new MinimalDlmsClient(adapter, serverAddress);
             var results = await client.ReadRequiredObisAsync(timeoutMs: 3000);
 
             foreach (var item in results)
