@@ -15,11 +15,15 @@ public static class UsageExample
     {
         ISerialPortAdapter adapter = new SerialPortAdapter.SerialPortAdapter("COM3", 9600);
         await adapter.OpenAsync();
+        var serverAddress = DlmsAddressHelper.GetServerAddress(0x1, 127);
+        var client = new MinimalDlmsClient(adapter, serverAddress);
 
         try
         {
-            var serverAddress = DlmsAddressHelper.GetServerAddress(0x1, 127);
-            var client = new MinimalDlmsClient(adapter, serverAddress);
+            Console.WriteLine($"SNRM: {BitConverter.ToString(client.BuildSnrmRequest())}");
+            Console.WriteLine($"AARQ: {BitConverter.ToString(client.BuildAarqRequest())}");
+
+            await client.EnsureAssociationAsync(timeoutMs: 3000);
             var results = await client.ReadRequiredObisAsync(timeoutMs: 3000);
 
             foreach (var item in results)
@@ -32,6 +36,7 @@ public static class UsageExample
         }
         finally
         {
+            await client.DisconnectAsync(timeoutMs: 3000);
             await adapter.CloseAsync();
         }
     }
