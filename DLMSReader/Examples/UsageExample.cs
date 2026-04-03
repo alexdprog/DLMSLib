@@ -15,8 +15,7 @@ public static class UsageExample
     {
         ISerialPortAdapter adapter = new SerialPortAdapter.SerialPortAdapter("COM3", 9600);
         await adapter.OpenAsync();
-        var serverAddress = DlmsAddressHelper.GetServerAddress(0x1, 127);
-        var client = new MinimalDlmsClient(adapter, serverAddress);
+        var client = new MinimalDlmsClient(adapter, logicalAddress: 0x1, physicalAddress: 127, clientAddress: 0x10);
 
         try
         {

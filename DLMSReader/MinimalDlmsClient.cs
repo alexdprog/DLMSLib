@@ -32,9 +32,26 @@ public sealed class MinimalDlmsClient
     /// <param name="clientAddress">Клиентский адрес (по умолчанию 0x10).</param>
     public MinimalDlmsClient(ISerialPortAdapter portAdapter, int serverAddress, int clientAddress = 0x10)
     {
+        if (clientAddress <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(clientAddress), "Клиентский адрес должен быть больше 0. Для Public client используйте 0x10.");
+        }
+
         _portAdapter = portAdapter;
         _serverAddress = serverAddress;
         _clientAddress = clientAddress;
+    }
+
+    /// <summary>
+    /// Создает экземпляр клиента по логическому и физическому адресу сервера.
+    /// </summary>
+    /// <param name="portAdapter">Адаптер порта.</param>
+    /// <param name="logicalAddress">Логический адрес сервера.</param>
+    /// <param name="physicalAddress">Физический адрес сервера.</param>
+    /// <param name="clientAddress">Клиентский адрес (по умолчанию 0x10).</param>
+    public MinimalDlmsClient(ISerialPortAdapter portAdapter, int logicalAddress, int physicalAddress, int clientAddress = 0x10)
+        : this(portAdapter, DlmsAddressHelper.GetServerAddress(logicalAddress, physicalAddress), clientAddress)
+    {
     }
 
     /// <summary>
